@@ -28,7 +28,7 @@ It's lightweight, easy to integrate, and strictly separates client-side visuals 
 
 ---
 
-## 🔧 Requirements
+## 🔧 Made with
 
 - **Unity 6000.0.34f1**
 - **Mirror 96.0.1**
