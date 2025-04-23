@@ -19,6 +19,37 @@ It's lightweight, easy to integrate, and strictly separates client-side visuals 
 
 ---
 
+## 🔌 Setup Instructions
+
+To get started with the inventory system:
+
+1. **Create your item(s)**:  
+   - Use the menu: `Inventory > Create Item`  
+   - This generates a ScriptableObject (`ItemSO`) representing your item.
+
+2. **Create the item database**:  
+   - Use the menu: `Inventory > Create Database`  
+   - This creates the base database ScriptableObject (`ItemDatabaseSO`).
+
+3. **Scan and register items**:  
+   - Select your newly created database asset.
+   - In the Inspector, click the `Scan All Items` button to automatically find and index all `ItemSO` assets in the project.
+
+4. **Item IDs are auto-incremented**:  
+   - Every time a new item is created or scanned, its `itemID` is automatically incremented and saved via `PlayerPrefs`.
+
+5. **Add the database singleton to your scene**:  
+   - Drag the `DatabaseReader` prefab into your scene.
+   - This ensures item data is available at runtime.
+
+6. **Register item prefabs in Mirror**:  
+   - All item prefabs (that can be dropped or spawned in-game) must be added to **Mirror’s Network Manager prefab list**, otherwise they won’t sync properly across the network.
+
+7. **Use the sample scene**:  
+   - You can check out the included example scene to see the system already set up and working.
+
+---
+
 ## 🚧 Current Limitations
 
 - ❌ No persistent save/load (no JSON or database integration yet).
