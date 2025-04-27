@@ -1,3 +1,4 @@
+#if UNITY_EDITOR
 using UnityEditor;
 using UnityEngine;
 
@@ -26,7 +27,7 @@ public class InventoryManagerEditor : Editor {
                 EditorGUILayout.BeginVertical(GUI.skin.box);
                 EditorGUILayout.LabelField($"🗃️ {container.containerName}", EditorStyles.boldLabel);
                 EditorGUILayout.LabelField("LinkedItemID : ", container.LinkedItemID.ToString());
-                EditorGUILayout.LabelField("Type : ", container.containerType);
+                EditorGUILayout.LabelField("Type : ", container.containerName);
                 EditorGUILayout.LabelField("Size : ", $"{container.size.x} x {container.size.y}");
                 EditorGUILayout.LabelField("Slots : ", container.slotsData.Length.ToString());
                 EditorGUILayout.EndVertical();
@@ -65,3 +66,4 @@ public class InventoryManagerEditor : Editor {
         }
     }
 }
+#endif

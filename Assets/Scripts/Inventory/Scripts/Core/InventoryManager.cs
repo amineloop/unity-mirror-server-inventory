@@ -3,7 +3,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using Mirror;
 
-public class InventoryManager : NetworkBehaviour {
+public class InventoryManager : NetworkBehaviour
+{
     [Header("Inventory Settings")]
     public InventoryViewer inventoryViewer;
 
@@ -14,13 +15,15 @@ public class InventoryManager : NetworkBehaviour {
     [Header("Inventory Data")]
     public SyncList<InventoryData> inventoryData = new SyncList<InventoryData>();
 
-    void Awake() {
+    void Awake()
+    {
         inventoryViewer = GetComponent<InventoryViewer>();
     }
 
     void Start() {
-        if (isOwned) {
-            CmdRequestAddContainer(netIdentity, new Vector2Int(4, 2), "Pockets", -1);
+        if (isOwned && !ContainerNameExists("Pockets"))
+        {
+            CmdRequestAddContainer(new Vector2Int(4, 2), "Pockets", -1);
         }
     }
 
@@ -28,15 +31,15 @@ public class InventoryManager : NetworkBehaviour {
         if (!isOwned) return;
 
         if (isServer && Time.time - lastSyncTime > inventorySyncInterval) {
-            SyncAllContainers(netIdentity);
+            SyncAllContainers();
             lastSyncTime = Time.time;
         }
         // DEBUG, DELETE LATER
-        if (Input.GetKeyDown(KeyCode.C)) {
-            CmdRequestAddContainer(netIdentity, new Vector2Int(4, 3), "Test", 1);
+        if (Input.GetKeyDown(KeyCode.C) && !ContainerNameExists("Test")) {
+            CmdRequestAddContainer(new Vector2Int(4, 3), "Test", 1);
         }
 
-        if (Input.GetKeyDown(KeyCode.R)) {
+        if (Input.GetKeyDown(KeyCode.R) && ContainerNameExists("Test")) {
             CmdRequestRemoveContainer("Test");
         }
         // DEBUG, DELETE LATER
@@ -47,21 +50,22 @@ public class InventoryManager : NetworkBehaviour {
     /// Request the server to add a new container to the player's inventory.
     /// This method is called when the player presses the 'C' key.
     /// </summary>
-    /// <param name="targetPlayer"></param>
     /// <param name="size"></param>
-    /// <param name="type"></param>
+    /// <param name="containerName"></param>
     /// <param name="linkedItemID"></param>
     [Command]
-    public void CmdRequestAddContainer(NetworkIdentity targetPlayer, Vector2Int size, string type, int linkedItemID) {
+    public void CmdRequestAddContainer( Vector2Int size, string containerName, int linkedItemID)
+    {
         if (size.x <= 0 || size.y <= 0) return;
-        AddNewContainer(targetPlayer, size, type, linkedItemID);
+        if(ContainerNameExists(containerName)) return;
+        AddNewContainer(size, containerName, linkedItemID);
     }
 
     [Server]
-    public void AddNewContainer(NetworkIdentity targetPlayer, Vector2Int size, string type, int linkedItemID = -1) {
+    public void AddNewContainer(Vector2Int size, string containerName, int linkedItemID = -1)
+    {
         InventoryData container = new InventoryData {
-            containerType = type,
-            containerName = "Default",
+            containerName = containerName,
             size = size,
             LinkedItemID = linkedItemID,
             containerIndex = inventoryData.Count,
@@ -76,31 +80,35 @@ public class InventoryManager : NetworkBehaviour {
         }
 
         inventoryData.Add(container);
-        TargetAddContainer(targetPlayer.connectionToClient, container);
+        TargetAddContainer(container);
     }
 
     [TargetRpc]
-    void TargetAddContainer(NetworkConnection target, InventoryData container) {
-        inventoryViewer.AddNewContainer(container.size, container.containerType, container.containerName, container.containerIndex);
+    void TargetAddContainer(InventoryData container)
+    {
+        inventoryViewer.AddNewContainer(container.size, container.containerName, container.containerName, container.containerIndex);
     }
 
     [Command]
-    public void CmdRequestRemoveContainer(string containerType) {
-        RemoveContainer(containerType);
+    public void CmdRequestRemoveContainer(string containerName)
+    {
+        RemoveContainer(containerName);
     }
 
     [Server]
-    void RemoveContainer(string containerType) {
-        var container = inventoryData.Find(c => c.containerType == containerType);
+    void RemoveContainer(string containerName)
+    {
+        var container = inventoryData.Find(c => c.containerName == containerName);
         if (container != null) {
             inventoryData.Remove(container);
-            RpcRemoveContainer(containerType);
+            RpcRemoveContainer(containerName);
         }
     }
 
     [ClientRpc]
-    void RpcRemoveContainer(string containerType) {
-        inventoryViewer.RemoveContainer(containerType);
+    void RpcRemoveContainer(string containerName)
+    {
+        inventoryViewer.RemoveContainer(containerName);
     }
 
     #endregion
@@ -115,21 +123,24 @@ public class InventoryManager : NetworkBehaviour {
     /// <param name="itemID"></param>
     /// <param name="amount"></param>
     [Server]
-    public void RequestAddItem(int containerIndex, int itemID, int amount) {
+    public void RequestAddItem(int containerIndex, int itemID, int amount)
+    {
         if (!ValidateContainerIndex(containerIndex)) return;
 
         InventoryData container = inventoryData[containerIndex];
         ItemSO itemSO = DatabaseReader.instance.GetItem(itemID);
         if(itemSO == null) return;
 
-        if (!ThereIsSpaceInContainer(containerIndex, itemID, amount)) {
+        if (!ThereIsSpaceInContainer(containerIndex, itemID, amount))
+        {
             containerIndex = FindContainerWithSpace(itemID, amount);
             if (containerIndex == -1) return;
         }
 
         if (itemSO.stackable) {
             foreach (var slot in container.slotsData) {
-                if (!slot.isEmpty && slot.itemID == itemID && slot.amount < itemSO.maxStackSize) {
+                if (!slot.isEmpty && slot.itemID == itemID && slot.amount < itemSO.maxStackSize)
+                {
                     int spaceLeft = itemSO.maxStackSize - slot.amount;
                     int added = Mathf.Min(spaceLeft, amount);
                     slot.amount += added;
@@ -161,7 +172,8 @@ public class InventoryManager : NetworkBehaviour {
     /// <param name="coord"></param>
     /// <param name="amount"></param>
     [Server]
-    public void DropItem(int containerIndex, Vector2Int coord, int amount) {
+    public void DropItem(int containerIndex, Vector2Int coord, int amount)
+    {
         if (!ValidateContainerIndex(containerIndex)) return;
 
         var container = inventoryData[containerIndex];
@@ -188,7 +200,8 @@ public class InventoryManager : NetworkBehaviour {
     /// <param name="coord"></param>
     /// <param name="amount"></param>
     [Command]
-    public void CmdRequestDropItem(int containerIndex, Vector2Int coord, int amount) {
+    public void CmdRequestDropItem(int containerIndex, Vector2Int coord, int amount)
+    {
         DropItem(containerIndex, coord, amount);
     }
 
@@ -199,7 +212,8 @@ public class InventoryManager : NetworkBehaviour {
     /// <param name="containerIndex"></param>
     /// <param name="coord"></param>
     /// <param name="amount"></param>
-    public void AskDropItem(int containerIndex, Vector2Int coord, int amount) {
+    public void AskDropItem(int containerIndex, Vector2Int coord, int amount)
+    {
         if (!isOwned) return;
         CmdRequestDropItem(containerIndex, coord, amount);
     }
@@ -217,7 +231,8 @@ public class InventoryManager : NetworkBehaviour {
     /// <param name="amount"></param>
     /// <param name="isEmpty"></param>
     [ClientRpc]
-    void RpcUpdateSlot(int containerIndex, Vector2Int coordinates, int itemID, int amount, bool isEmpty) {
+    void RpcUpdateSlot(int containerIndex, Vector2Int coordinates, int itemID, int amount, bool isEmpty)
+    {
         if (isServer) return;
         inventoryViewer.UpdateSlot(containerIndex, coordinates, itemID, amount, isEmpty);
     }
@@ -226,11 +241,13 @@ public class InventoryManager : NetworkBehaviour {
     /// Sync all containers to the client.
     /// /// This method is called to sync all containers to the client when the player connects.
     /// </summary>
-    /// <param name="netId"></param>
     [Server]
-    void SyncAllContainers(NetworkIdentity netId) {
-        foreach (var container in inventoryData) {
-            TargetAddContainer(netId.connectionToClient, container);
+    void SyncAllContainers()
+    {
+        foreach (var container in inventoryData)
+        {
+            RemoveContainer(container.containerName);
+            TargetAddContainer(container);
             foreach (var slot in container.slotsData) {
                 RpcUpdateSlot(container.containerIndex, slot.coordinates, slot.itemID, slot.amount, slot.isEmpty);
             }
@@ -357,7 +374,8 @@ public class InventoryManager : NetworkBehaviour {
     /// <param name="itemID"></param>
     /// <param name="amount"></param>
     /// <returns></returns>
-    bool ThereIsSpaceInContainer(int containerIndex, int itemID, int amount) {
+    bool ThereIsSpaceInContainer(int containerIndex, int itemID, int amount)
+    {
         if (!ValidateContainerIndex(containerIndex)) return false;
 
         var container = inventoryData[containerIndex];
@@ -365,7 +383,8 @@ public class InventoryManager : NetworkBehaviour {
 
         if (itemSO.stackable) {
             foreach (var slot in container.slotsData) {
-                if (!slot.isEmpty && slot.itemID == itemID && slot.amount < itemSO.maxStackSize) {
+                if (!slot.isEmpty && slot.itemID == itemID && slot.amount < itemSO.maxStackSize)
+                {
                     int spaceLeft = itemSO.maxStackSize - slot.amount;
                     amount -= Mathf.Min(spaceLeft, amount);
                     if (amount <= 0) return true;
@@ -386,11 +405,20 @@ public class InventoryManager : NetworkBehaviour {
     /// <param name="itemID"></param>
     /// <param name="amount"></param>
     /// <returns></returns>
-    int FindContainerWithSpace(int itemID, int amount) {
+    int FindContainerWithSpace(int itemID, int amount)
+    {
         for (int i = 0; i < inventoryData.Count; i++)
             if (ThereIsSpaceInContainer(i, itemID, amount)) return i;
 
         return -1;
+    }
+
+    bool ContainerNameExists(string name)
+    {
+        foreach (var container in inventoryData) {
+            if (container.containerName == name) return true;
+        }
+        return false;
     }
 
     #endregion
